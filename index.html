@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket Purchase Form</title>
+    <style>
+         body {
+            font-family: 'Space Grotesk', sans-serif;
+            margin: 20px;
+            background: url('https://citysportsawards.com/wp-content/uploads/2024/06/awardsnight1.jpg') no-repeat center center fixed;
+            background-size: cover;
+        }
+        .form-container {
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .summary-container{
+            max-width: 600px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        }
+        .entries-container {
+            max-width: 900px;
+            margin: auto;
+            padding: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2); 
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+        }
+        label {
+            font-weight: bold;
+            margin-top: 10px;
+            display: block;
+        }
+        input[type="number"], input[type="text"], button, .pagination button {
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+        }
+        .pagination button {
+            width: auto;
+            padding: 5px 10px;
+            margin: 5px 2px;
+        }
+        button {
+            background-color: #5a67d8;
+            color: white;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #4c51bf;
+        }
+        .total {
+            font-weight: bold;
+            color: #333;
+            font-size: 1.2em;
+        }
+        .hidden {
+            display: none;
+        }
+        /* Table Styling */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+        th {
+            background-color: #f0f0f5;
+            font-weight: bold;
+        }
+        /* Cell Separators */
+        td + td, th + th {
+            border-left: 1px solid #ccc; /* Adds vertical separator between cells */
+        }
+        .view-entries-container {
+        position: fixed;
+        bottom: 50px;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+    }
+    </style>
+</head>
+<body>
+
+    <div id="form-container" class="form-container">
+        <h2>Buy Tickets</h2>
+        <form id="ticketForm">
+            <label for="studentTickets">Student Tickets (₦71,845 each):</label>
+            <input type="number" id="studentTickets" min="0" value="0" onchange="updateForm()">
+            <div id="studentNames" class="name-fields"></div>
+    
+            <label for="parentTickets">Parent Tickets (₦42,000 each):</label>
+            <input type="number" id="parentTickets" min="0" value="0" onchange="updateForm()">
+            <div id="parentNames" class="name-fields"></div>
+    
+            <label for="tableTickets">Table Tickets (₦630,000 each):</label>
+            <input type="number" id="tableTickets" min="0" value="0" onchange="updateForm()">
+            <div id="tableNames" class="name-fields"></div>
+    
+            <div class="total-amount">
+                <p id="totalAmount" class="total">Total: ₦0</p>
+            </div>
+    
+            <button type="button" onclick="submitForm()">Submit</button>
+        </form>
+    </div>
+    
+
+<div id="summary-container" class="summary-container hidden">
+    <h2>Order Summary</h2>
+    <div id="summaryDetails"></div>
+    <p>Please pay the total amount into the following account:</p>
+    <p><strong>CitySports International Intl School <br> (Zenith Bank)</strong><br>Account Number: 1210085751</p>
+    <button onclick="promptForAdmin()">View Entries</button>
+    <button onclick="resetForm()">Back</button>
+</div>
+
+<div id="entries-container" class="entries-container hidden">
+    <h2>Stored Entries</h2>
+    <div id="passwordPrompt" class="hidden">
+        <label for="password">Enter Password:</label>
+        <input type="password" id="password">
+        <button onclick="checkPassword()">Submit</button>
+    </div>
+    <table id="entriesTable" class="hidden">
+        <thead>
+            <tr>
+                <th>Ticket Type</th>
+                <th>Holder Names</th>
+                
+                <th>Total Cost</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="entriesBody"></tbody>
+    </table>
+    <div class="pagination hidden" id="paginationControls"></div>
+    <button onclick="backToSummary()">Back to Order Summary</button>
+</div>
+
+<script>
+    const prices = {
+        student: 71845,
+        parent: 42000,
+        table: 630000
+    };
+
+    const apiUrl = 'http://localhost:3001/api/items';
+
+
+    function displaySummary(orderData) {
+    const summaryDetails = document.getElementById("summaryDetails");
+    
+    const studentNamesList = orderData.studentNames.map(name => `<li>${name}</li>`).join("");
+    const parentNamesList = orderData.parentNames.map(name => `<li>${name}</li>`).join("");
+
+    summaryDetails.innerHTML = `
+        <p>Student Tickets: ${orderData.studentTickets} x ₦${prices.student.toLocaleString()} = ₦${(orderData.studentTickets * prices.student).toLocaleString()}</p>
+        <ul>Student Names: ${studentNamesList}</ul>
+        <p>Parent Tickets: ${orderData.parentTickets} x ₦${prices.parent.toLocaleString()} = ₦${(orderData.parentTickets * prices.parent).toLocaleString()}</p>
+        <ul>Parent Names: ${parentNamesList}</ul>
+        <p class="total">Total Amount: ₦${orderData.total.toLocaleString()}</p>
+    `;
+    document.getElementById("form-container").classList.add("hidden");
+    document.getElementById("summary-container").classList.remove("hidden");
+}
+
+    function promptForAdmin() {
+        if (localStorage.getItem('isAdmin') === 'true') {
+            viewEntries(); // Show entries if admin
+        } else {
+            const adminPassword = prompt("Enter Admin Password:");
+            if (adminPassword === "csg@2023") {
+                localStorage.setItem('isAdmin', 'true'); // Store admin session
+                viewEntries();
+            } else {
+                alert("Incorrect password.");
+            }
+        }
+    }
+
+    function updateForm() {
+    const studentTickets = parseInt(document.getElementById("studentTickets").value) || 0;
+    const parentTickets = parseInt(document.getElementById("parentTickets").value) || 0;
+    const tableTickets = parseInt(document.getElementById("tableTickets").value) || 0;
+
+    // Update names input fields for student tickets
+    const studentNamesContainer = document.getElementById("studentNames");
+    studentNamesContainer.innerHTML = ''; // Clear previous inputs
+    for (let i = 0; i < studentTickets; i++) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = `Student Name ${i + 1}`;
+        input.id = `studentName${i}`;
+        studentNamesContainer.appendChild(input);
+    }
+
+    // Update names input fields for parent tickets
+    const parentNamesContainer = document.getElementById("parentNames");
+    parentNamesContainer.innerHTML = ''; // Clear previous inputs
+    for (let i = 0; i < parentTickets; i++) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = `Parent Name ${i + 1}`;
+        input.id = `parentName${i}`;
+        parentNamesContainer.appendChild(input);
+    }
+
+    // Update names input fields for table tickets
+    const tableNamesContainer = document.getElementById("tableNames");
+    tableNamesContainer.innerHTML = ''; // Clear previous inputs
+    for (let i = 0; i < tableTickets; i++) {
+        const input = document.createElement("input");
+        input.type = "text";
+        input.placeholder = `Table Name ${i + 1}`;
+        input.id = `tableName${i}`;
+        tableNamesContainer.appendChild(input);
+    }
+
+    // Calculate total
+    const total = (studentTickets * prices.student) + (parentTickets * prices.parent) + (tableTickets * prices.table);
+    document.getElementById("totalAmount").innerText = `Total: ₦${total.toLocaleString()}`;
+}
+
+    function updateNameFields(type, ticketInputId, nameContainerId) {
+        const ticketCount = parseInt(document.getElementById(ticketInputId).value) || 0;
+        const nameContainer = document.getElementById(nameContainerId);
+        nameContainer.innerHTML = '';
+        for (let i = 1; i <= ticketCount; i++) {
+            const input = document.createElement("input");
+            input.type = "text";
+            input.name = `${type}Name${i}`;
+            input.placeholder = `Full Name for ${type.charAt(0).toUpperCase() + type.slice(1)} Ticket #${i}`;
+            nameContainer.appendChild(input);
+        }
+    }
+
+    function updateTotalAmount() {
+        const studentTickets = parseInt(document.getElementById("studentTickets").value) || 0;
+        const parentTickets = parseInt(document.getElementById("parentTickets").value) || 0;
+        const tableTickets = parseInt(document.getElementById("tableTickets").value) || 0;
+        const total = (studentTickets * prices.student) + (parentTickets * prices.parent) + (tableTickets * prices.table);
+        document.getElementById("totalAmount").textContent = `Total: ₦${total.toLocaleString()}`;
+    }
+
+    async function submitForm() {
+    const studentTickets = parseInt(document.getElementById("studentTickets").value) || 0;
+    const parentTickets = parseInt(document.getElementById("parentTickets").value) || 0;
+    const tableTickets = parseInt(document.getElementById("tableTickets").value) || 0;
+
+    const studentNames = [];
+    for (let i = 0; i < studentTickets; i++) {
+        const name = document.getElementById(`studentName${i}`).value || '';
+        studentNames.push(name);
+    }
+
+    const parentNames = [];
+    for (let i = 0; i < parentTickets; i++) {
+        const name = document.getElementById(`parentName${i}`).value || '';
+        parentNames.push(name);
+    }
+
+    const tableNames = [];
+    for (let i = 0; i < tableTickets; i++) {
+        const name = document.getElementById(`tableName${i}`).value || '';
+        tableNames.push(name);
+    }
+
+    const total = (studentTickets * prices.student) + (parentTickets * prices.parent) + (tableTickets * prices.table);
+
+    const orderData = {
+        studentTickets,
+        parentTickets,
+        tableTickets,
+        studentNames,
+        parentNames,
+        tableNames,
+        total
+    };
+
+    try {
+        const response = await fetch(apiUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderData)
+        });
+
+        if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
+        
+        const data = await response.json();
+        displaySummary(orderData);
+    } catch (error) {
+        console.error('Submission error:', error);
+        alert("Failed to submit data.");
+    }
+}
+    
+    async function viewEntries() {
+        try {
+            const response = await fetch(apiUrl);
+            if (!response.ok) {
+                throw new Error('Failed to retrieve entries');
+            }
+
+            const entries = await response.json();
+            document.getElementById("summary-container").classList.add("hidden");
+            document.getElementById("entries-container").classList.remove("hidden");
+            displayEntries(entries);
+        } catch (error) {
+            alert("Error: " + error.message);
+        }
+    }
+
+    function displayEntries(entries) {
+    const entriesBody = document.getElementById("entriesBody");
+    entriesBody.innerHTML = "";
+
+    entries.forEach((entry, index) => {
+        // Ensure studentNames and parentNames are arrays, defaulting to empty arrays if undefined
+        const studentNames = entry.student_names || [];
+        const parentNames = entry.parent_names || [];
+
+        // Ensure total is a valid number, defaulting to 0 if undefined
+        const total = entry.total !== undefined ? entry.total : 0;
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>Student: ${entry.student_tickets}, Parent: ${entry. parent_tickets}, Table: ${entry.table_tickets}</td>
+            <td>${studentNames.concat(parentNames).join(", ")}</td>
+  
+            <td>₦${total.toLocaleString()}</td>
+            <td><button onclick="deleteEntry('${entry.id}')">Delete</button></td>
+        `;
+        entriesBody.appendChild(row);
+    });
+
+    setupPagination(entries.length);
+    document.getElementById("entriesTable").classList.remove("hidden");
+}
+
+
+
+    async function deleteEntry(id) {
+        try {
+            const response = await fetch(`${apiUrl}/${id}`, {
+                method: 'DELETE',
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete entry');
+            }
+
+            alert("Entry deleted successfully.");
+            viewEntries();
+        } catch (error) {
+            alert("Error: " + error.message);
+        }
+    }
+
+    function setupPagination(totalEntries) {
+        const entriesPerPage = 5;
+        const totalPages = Math.ceil(totalEntries / entriesPerPage);
+        const paginationControls = document.getElementById("paginationControls");
+
+        paginationControls.innerHTML = "";
+        for (let i = 1; i <= totalPages; i++) {
+            const pageButton = document.createElement("button");
+            pageButton.textContent = i;
+            pageButton.onclick = () => viewEntries(i);
+            paginationControls.appendChild(pageButton);
+        }
+        paginationControls.classList.remove("hidden");
+    }
+
+    function backToSummary() {
+        document.getElementById("entries-container").classList.add("hidden");
+        document.getElementById("summary-container").classList.remove("hidden");
+    }
+
+    function resetForm() {
+        document.getElementById("ticketForm").reset();
+        document.getElementById("studentNames").innerHTML = '';
+        document.getElementById("parentNames").innerHTML = '';
+        document.getElementById("totalAmount").textContent = "Total: ₦0";
+        document.getElementById("summary-container").classList.add("hidden");
+        document.getElementById("form-container").classList.remove("hidden");
+    }
+</script>
+
+
+</body>
+</html>
